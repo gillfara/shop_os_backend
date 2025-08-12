@@ -40,10 +40,17 @@ class Product(SQLModel):
 
 class ProductTable(Product, table=True):
     id: int | None = Field(default=None, primary_key=True)
-    inventories: list["InventoryTable"] = Relationship(back_populates="product")
+    inventories: Optional["InventoryTable"] = Relationship(
+        back_populates="product", sa_relationship_kwargs={"uselist": False}
+    )
     purchases: list["PurchaseTable"] = Relationship(back_populates="product")
     sales: list["SaleTable"] = Relationship(back_populates="product")
     loans: list["LoanTable"] = Relationship(back_populates="product")
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class ProductPub(Product):
+    id: int
 
 
 class Common(SQLModel):
@@ -65,7 +72,7 @@ class Purchase(Common):
     pass
 
 
-class PurchaseTable(Purchase):
+class PurchaseTable(Purchase, table=True):
     id: int | None = Field(default=None, primary_key=True)
     product_id: int | None = Field(default=None, foreign_key="producttable.id")
     product: ProductTable | None = Relationship(back_populates="purchases")
@@ -87,7 +94,7 @@ class Pay(Common):
     pass
 
 
-class PayTable(Pay):
+class PayTable(Pay, table=True):
     id: int | None = Field(default=None, primary_key=True)
     customer_id: int | None = Field(default=None, foreign_key="customertable.id")
     customer: CustomerTable | None = Relationship(back_populates="pays")
@@ -98,10 +105,19 @@ class Inventory(SQLModel):
     units: Unit = Field(default=Unit.pc)
 
 
-class InventoryTable(Inventory):
+class InventoryTable(Inventory, table=True):
     id: int | None = Field(default=None, primary_key=True)
     product_id: int | None = Field(default=None, foreign_key="producttable.id")
     product: ProductTable | None = Relationship(back_populates="inventories")
+
+
+class InventoryPub(Inventory):
+    id: int
+
+
+# model for returning Product with invetory
+class ProductInventory(ProductPub):
+    inventories: InventoryPub | None
 
 
 # fuction for initializing database
