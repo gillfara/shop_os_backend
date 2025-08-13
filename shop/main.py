@@ -96,10 +96,21 @@ async def add_purchases_item(
 ):
     productm = []
     for product in purchase.products:
-        product.inventories = InventoryTable.model_validate(product.inventories)
+        prodresuslt = session.exec(
+            select(ProductTable)
+            .where(ProductTable.name == product.name)
+            .order_by(ProductTable.created_at.desc())
+        ).all()
+        if prodresuslt:
+            prev_stock = prodresuslt[0].inventories.stock
+        else:
+            prev_stock = 0
+        product.inventories = InventoryTable.model_validate(
+            {**product.inventories.model_dump(), "stock": product.inventories.quantity}
+        )
+        product.inventories.stock = product.inventories.stock + prev_stock
         prod = ProductTable.model_validate(product)
         productm.append(prod)
-
 
     purchasedb = purchase
     purchasedb.products = productm

@@ -111,12 +111,14 @@ class Inventory(SQLModel):
 
 class InventoryTable(Inventory, table=True):
     id: int | None = Field(default=None, primary_key=True)
+    stock:float
     product_id: int | None = Field(default=None, foreign_key="producttable.id")
     product: ProductTable | None = Relationship(back_populates="inventories")
 
 
 class InventoryPub(Inventory):
     id: int
+    stock:int
 
 
 # pydantic  model for returning Product with invetory
