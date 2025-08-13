@@ -17,7 +17,11 @@ create_db_and_tables()
 
 # products endpoints
 @app.post("/products/", response_model=ProductPub)
-async def save_product(product: Product, session: Session = Depends(create_session)):
+async def save_product(
+    product: ProductPurchase, session: Session = Depends(create_session)
+):
+    inventory = InventoryTable.model_validate(product.inventories)
+    product.inventories = inventory
     product_data = ProductTable.model_validate(product)
     session.add(product_data)
     session.commit()
@@ -28,7 +32,9 @@ async def save_product(product: Product, session: Session = Depends(create_sessi
 @app.get("/products/", response_model=list[ProductInventory])
 async def get_all_products(session: Session = Depends(create_session)):
     seen = set()
-    products = session.exec(select(ProductTable).order_by(ProductTable.created_at.desc())).all()
+    products = session.exec(
+        select(ProductTable).order_by(ProductTable.created_at.desc())
+    ).all()
     productsout = []
 
     for product in products:
@@ -47,7 +53,7 @@ async def get_product(id: int, session: Session = Depends(create_session)):
     return product
 
 
-@app.post("/products/{product_id}/inventories/",response_model=InventoryPub)
+@app.post("/products/{product_id}/inventories/", response_model=InventoryPub)
 async def add_product_inventory(
     product_id: int, inventory: Inventory, session: Session = Depends(create_session)
 ):
@@ -67,11 +73,40 @@ async def add_product_inventory(
     return dbinventory
 
 
-@app.get("/products/{product_id}/inventories/",response_model=InventoryPub)
-async def get_product_inventory(product_id:int,session:Session=Depends(create_session)):
-    product = session.get(ProductTable,product_id)
+@app.get("/products/{product_id}/inventories/", response_model=InventoryPub)
+async def get_product_inventory(
+    product_id: int, session: Session = Depends(create_session)
+):
+    product = session.get(ProductTable, product_id)
     if not product:
-        raise HTTPException(404,"product with such id was not found")
+        raise HTTPException(404, "product with such id was not found")
     if not product.inventories:
-        raise HTTPException(status.HTTP_404_NOT_FOUND,"inventory for this product was not found")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, "inventory for this product was not found"
+        )
     return product.inventories
+
+
+# purchase endpoints
+
+
+@app.post("/purchases/", response_model=PurchasePub)
+async def add_purchases_item(
+    purchase: PurchaseProduct, session: Session = Depends(create_session)
+):
+    productm = []
+    for product in purchase.products:
+        product.inventories = InventoryTable.model_validate(product.inventories)
+        prod = ProductTable.model_validate(product)
+        productm.append(prod)
+
+
+    purchasedb = purchase
+    purchasedb.products = productm
+    purchasedb = PurchaseTable.model_validate(purchase)
+    purchasedb.products = productm
+
+    session.add(purchasedb)
+    session.commit()
+    session.refresh(purchasedb)
+    return purchasedb

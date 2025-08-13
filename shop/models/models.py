@@ -43,7 +43,8 @@ class ProductTable(Product, table=True):
     inventories: Optional["InventoryTable"] = Relationship(
         back_populates="product", sa_relationship_kwargs={"uselist": False}
     )
-    purchases: list["PurchaseTable"] = Relationship(back_populates="product")
+    purchase_id: int | None = Field(default=None, foreign_key="purchasetable.id")
+    purchases: Optional["PurchaseTable"] = Relationship(back_populates="products")
     sales: list["SaleTable"] = Relationship(back_populates="product")
     loans: list["LoanTable"] = Relationship(back_populates="product")
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
@@ -51,6 +52,10 @@ class ProductTable(Product, table=True):
 
 class ProductPub(Product):
     id: int
+
+
+class ProductPurchase(Product):
+    inventories: "Inventory"
 
 
 class Common(SQLModel):
@@ -68,14 +73,13 @@ class SaleTable(Sale, table=True):
     product: ProductTable | None = Relationship(back_populates="sales")
 
 
-class Purchase(Common):
-    pass
+class Purchase(SQLModel):
+    date: datetime = Field(default=datetime.now())
 
 
 class PurchaseTable(Purchase, table=True):
     id: int | None = Field(default=None, primary_key=True)
-    product_id: int | None = Field(default=None, foreign_key="producttable.id")
-    product: ProductTable | None = Relationship(back_populates="purchases")
+    products: list[ProductTable] = Relationship(back_populates="purchases")
 
 
 class Loan(Common):
@@ -115,9 +119,22 @@ class InventoryPub(Inventory):
     id: int
 
 
-# model for returning Product with invetory
+# pydantic  model for returning Product with invetory
 class ProductInventory(ProductPub):
     inventories: InventoryPub | None
+
+
+class ProductInventoryIn(Product):
+    inventories: Inventory | None
+
+
+# pydantic model for returning Purchase with products
+class PurchaseProduct(SQLModel):
+    products: list[ProductPurchase]
+
+
+class PurchasePub(PurchaseProduct):
+    id: int
 
 
 # fuction for initializing database
