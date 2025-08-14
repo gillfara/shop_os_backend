@@ -44,10 +44,16 @@ class ProductTable(Product, table=True):
         back_populates="product", sa_relationship_kwargs={"uselist": False}
     )
     purchase_id: int | None = Field(default=None, foreign_key="purchasetable.id")
+    sale_id: int | None = Field(default=None, foreign_key="saletable.id")
     purchases: Optional["PurchaseTable"] = Relationship(back_populates="products")
-    sales: list["SaleTable"] = Relationship(back_populates="product")
+    sale: Optional["SaleTable"] = Relationship(back_populates="products")
     loans: list["LoanTable"] = Relationship(back_populates="product")
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class ProductSale(SQLModel):
+    name: str
+    quantity: float
 
 
 class ProductPub(Product):
@@ -55,6 +61,8 @@ class ProductPub(Product):
 
 
 class ProductPurchase(Product):
+    """return a product with its inventory"""
+
     inventories: "Inventory"
 
 
@@ -63,14 +71,18 @@ class Common(SQLModel):
     quantity: float
 
 
-class Sale(Common):
-    pass
+class Sale(SQLModel):
+    date: datetime = Field(default=datetime.now())
 
 
 class SaleTable(Sale, table=True):
     id: int | None = Field(default=None, primary_key=True)
-    product_id: int | None = Field(default=None, foreign_key="producttable.id")
-    product: ProductTable | None = Relationship(back_populates="sales")
+    products: list[ProductTable] = Relationship(back_populates="sale")
+
+
+class SalePub(Sale):
+    id: int
+    products: list["ProductPub"]
 
 
 class Purchase(SQLModel):
@@ -111,14 +123,16 @@ class Inventory(SQLModel):
 
 class InventoryTable(Inventory, table=True):
     id: int | None = Field(default=None, primary_key=True)
-    stock:float
+    stock: float
     product_id: int | None = Field(default=None, foreign_key="producttable.id")
     product: ProductTable | None = Relationship(back_populates="inventories")
 
 
 class InventoryPub(Inventory):
+    """return id and stock of an inventory"""
+
     id: int
-    stock:int
+    stock: int
 
 
 # pydantic  model for returning Product with invetory
@@ -132,11 +146,16 @@ class ProductInventoryIn(Product):
 
 # pydantic model for returning Purchase with products
 class PurchaseProduct(SQLModel):
+    """return a list of product  in  purchase  object"""
+
     products: list[ProductPurchase]
 
 
 class PurchasePub(PurchaseProduct):
+    """return a purchase object"""
+
     id: int
+    date: datetime
 
 
 # fuction for initializing database

@@ -121,3 +121,103 @@ async def add_purchases_item(
     session.commit()
     session.refresh(purchasedb)
     return purchasedb
+
+
+@app.get("/purchases/", response_model=list[PurchasePub])
+async def get_all_purchases(session: Session = Depends(create_session)):
+    purchases = session.exec(
+        select(PurchaseTable).order_by(PurchaseTable.date.desc())
+    ).all()
+    return purchases
+
+
+@app.get("/purchases/{id}", response_model=PurchasePub)
+async def get_purchase(id: int, session: Session = Depends(create_session)):
+    purchase = session.get(PurchaseTable, id)
+    if not purchase:
+        raise HTTPException(404, "purchase with such id was not found")
+    return purchase
+
+
+@app.get("/purchases/{id}/products", response_model=PurchaseProduct)
+async def get_purchase_products(id: int, session: Session = Depends(create_session)):
+    purchase = session.get(PurchaseTable, id)
+    if not purchase:
+        raise HTTPException(404, "purchase with such id was not found")
+    return purchase
+
+
+@app.get("/purchases/{id}/products/{product_id}", response_model=ProductPurchase)
+async def get_purchase_product(
+    id: int, product_id: int, session: Session = Depends(create_session)
+):
+    purchase = session.get(PurchaseTable, id)
+    if not purchase:
+        raise HTTPException(404, "purchase with such id was not found")
+    product = next((p for p in purchase.products if p.id == product_id), None)
+    if not product:
+        raise HTTPException(404, "product with such id was not found in this purchase")
+    return product
+
+
+@app.delete("/purchases/{id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_purchase(id: int, session: Session = Depends(create_session)):
+    purchase = session.get(PurchaseTable, id)
+    if not purchase:
+        raise HTTPException(404, "purchase with such id was not found")
+    session.delete(purchase)
+    session.commit()
+    return {"message": "Purchase deleted successfully"}
+
+
+# endpionts for sales
+
+
+@app.post("/sales/", response_model=SalePub)
+async def add_sale_item(
+    products: list[ProductSale], session: Session = Depends(create_session)
+):
+    product_data = []
+    for product in products:
+        data = session.exec(
+            select(ProductTable)
+            .where(ProductTable.name == product.name)
+            .order_by(ProductTable.created_at.desc())
+        ).all()
+        print(data)
+        if data:
+            data = data[0]
+            if data.inventories.stock > product.quantity:
+                data.inventories.stock = data.inventories.stock - product.quantity
+            else:
+                raise HTTPException(
+                    status.HTTP_406_NOT_ACCEPTABLE,
+                    "there is no enough stock to perform this operation",
+                )
+        else:
+            raise HTTPException(
+                status.HTTP_406_NOT_ACCEPTABLE,
+                f"you can not sell product {product.name} as it was not found",
+            )
+        product_data.append(data)
+    sale = SaleTable(products=product_data)
+
+    session.add(sale)
+    session.commit()
+    session.refresh(sale)
+    return sale
+
+
+@app.get("/sales/", response_model=list[SalePub])
+async def get_all_sales(session: Session = Depends(create_session)):
+    sales = session.exec(select(SaleTable).order_by(SaleTable.date.desc())).all()
+    if not sales:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "there is no sale data found")
+    return sales
+
+
+
+
+# loan endpoints 
+
+ 
