@@ -1,0 +1,18 @@
+services:
+  eshop:
+    build:
+      context: .
+      dockerfile: dockerfile
+    ports:
+      - "8000:8000"
+    networks:
+      - shop-network
+    restart: unless-stopped
+
+networks:
+  shop-network:
+    driver: bridge
+
+volumes:
+  sqlite_data:
+    driver: local

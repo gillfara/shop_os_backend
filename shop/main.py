@@ -1,10 +1,25 @@
+from typing import Sequence
 from fastapi import FastAPI, Depends, HTTPException, status
 from models import ProductTable, Product, ProductPub
 from models import engine, create_db_and_tables
 from sqlmodel import Session, select
 from models.models import *
+from models.models import SaleTable
+from models.models import CustomerTable
+from models.models import PurchaseTable
+from models.models import LoanTable
+from fastapi.middleware.cors import CORSMiddleware
+import uvicorn
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allows all origins
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows all methods (GET, POST, PUT, DELETE, etc.)
+    allow_headers=["*"],  # Allows all headers
+)
 
 
 async def create_session():
@@ -46,7 +61,9 @@ async def get_all_products(session: Session = Depends(create_session)):
 
 
 @app.get("/products/{id}", response_model=ProductInventory)
-async def get_product(id: int, session: Session = Depends(create_session)):
+async def get_product(
+    id: int, session: Session = Depends(create_session)
+) -> ProductTable:
     product = session.get(ProductTable, id)
     if not product:
         raise HTTPException(404, "not found")
@@ -93,7 +110,7 @@ async def get_product_inventory(
 @app.post("/purchases/", response_model=PurchasePub)
 async def add_purchases_item(
     purchase: PurchaseProduct, session: Session = Depends(create_session)
-):
+) -> PurchaseTable:
     productm = []
     for product in purchase.products:
         prodresuslt = session.exec(
@@ -173,11 +190,9 @@ async def delete_purchase(id: int, session: Session = Depends(create_session)):
 # endpionts for sales
 
 
-@app.post("/sales/", response_model=SalePub)
-async def add_sale_item(
-    products: list[ProductSale], session: Session = Depends(create_session)
-):
-    product_data = []
+def prepare_sale(products, session) -> SaleTable:
+    """This is a helper fuction for preparing SaleTable before it  can be saved"""
+    bills = []
     for product in products:
         data = session.exec(
             select(ProductTable)
@@ -199,9 +214,16 @@ async def add_sale_item(
                 status.HTTP_406_NOT_ACCEPTABLE,
                 f"you can not sell product {product.name} as it was not found",
             )
-        product_data.append(data)
-    sale = SaleTable(products=product_data)
+        bills.append(BillTable(quantity=product.quantity, product=data))
+    sale = SaleTable(bills=bills)
+    return sale
 
+
+@app.post("/sales/", response_model=SalePub)
+async def add_sale_item(
+    products: list[ProductSale], session: Session = Depends(create_session)
+) -> SaleTable:
+    sale = prepare_sale(products, session)
     session.add(sale)
     session.commit()
     session.refresh(sale)
@@ -209,15 +231,83 @@ async def add_sale_item(
 
 
 @app.get("/sales/", response_model=list[SalePub])
-async def get_all_sales(session: Session = Depends(create_session)):
+async def get_all_sales(
+    session: Session = Depends(create_session),
+) -> Sequence[SaleTable]:
     sales = session.exec(select(SaleTable).order_by(SaleTable.date.desc())).all()
     if not sales:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "there is no sale data found")
     return sales
 
 
+# Customer endpoints
+@app.post("/customers", response_model=User)
+async def add_customer(
+    user: User, session: Session = Depends(create_session)
+) -> CustomerTable:
+    customer = CustomerTable.model_validate(user)
+    session.add(customer)
+    session.commit()
+    session.refresh(customer)
+    return customer
 
 
-# loan endpoints 
+@app.get("/customers/", response_model=list[User])
+async def get_all_customers(
+    session: Session = Depends(create_session),
+) -> Sequence[CustomerTable]:
+    customers = session.exec(select(CustomerTable)).all()
+    if not customers:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "there are no customers found")
+    return customers
 
- 
+
+# loan endpoints
+@app.post("/loans", response_model=LoanPub)
+async def add_loan(
+    products: list[ProductSale],
+    user_id: int,
+    session: Session = Depends(create_session),
+):
+    customer = session.get(CustomerTable, user_id)
+    if not customer:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "customer was not found")
+    # check if there is loan with that customer if there is do not create loan raise error
+    loan = session.exec(
+        select(LoanTable).where(LoanTable.customer_id == user_id)
+    ).one_or_none()
+    if loan:
+        loan.sales.append(prepare_sale(products, session))
+    else:
+        sale: SaleTable = prepare_sale(products, session)
+        loan = LoanTable(customer=customer, sales=[sale])
+    session.add(loan)
+    session.commit()
+    session.refresh(loan)
+    return loan
+
+
+@app.get("/loans", response_model=LoanPub)
+def get_all_loan(
+    user_id: int, session: Session = Depends(create_session)
+) -> Sequence[LoanTable]:
+    print(user_id)
+    customer = session.get(CustomerTable, user_id)
+    print(customer)
+    if not customer:
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, "there is no such customer found"
+        )
+    loan = session.exec(
+        select(LoanTable).where(LoanTable.customer == customer)
+    ).one_or_none()
+    if not loan:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "this customer has no loan")
+    # print(loan.sales)
+    return loan
+
+
+if __name__ == "__main__":
+    config = uvicorn.Config("main:app", host="127.0.0.1", port=8000, log_level="info")
+    server = uvicorn.Server(config)
+    server.run()

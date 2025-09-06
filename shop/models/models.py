@@ -44,16 +44,21 @@ class ProductTable(Product, table=True):
         back_populates="product", sa_relationship_kwargs={"uselist": False}
     )
     purchase_id: int | None = Field(default=None, foreign_key="purchasetable.id")
-    sale_id: int | None = Field(default=None, foreign_key="saletable.id")
     purchases: Optional["PurchaseTable"] = Relationship(back_populates="products")
-    sale: Optional["SaleTable"] = Relationship(back_populates="products")
-    loans: list["LoanTable"] = Relationship(back_populates="product")
+    bill: list["BillTable"] = Relationship(
+        back_populates="product",
+    )
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class ProductSale(SQLModel):
     name: str
     quantity: float
+
+
+class ProductSalePub(SQLModel):
+    name: str
+    selling_price: float
 
 
 class ProductPub(Product):
@@ -77,12 +82,14 @@ class Sale(SQLModel):
 
 class SaleTable(Sale, table=True):
     id: int | None = Field(default=None, primary_key=True)
-    products: list[ProductTable] = Relationship(back_populates="sale")
+    bills: list["BillTable"] = Relationship(back_populates="sale")
+    loan_id: int | None = Field(default=None, foreign_key="loantable.id")
+    loan: Optional["LoanTable"] = Relationship(back_populates="sales")
 
 
 class SalePub(Sale):
     id: int
-    products: list["ProductPub"]
+    bills: list["BillPub"]
 
 
 class Purchase(SQLModel):
@@ -94,16 +101,16 @@ class PurchaseTable(Purchase, table=True):
     products: list[ProductTable] = Relationship(back_populates="purchases")
 
 
-class Loan(Common):
-    pass
-
-
-class LoanTable(Loan, table=True):
+class LoanTable(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     customer_id: int | None = Field(default=None, foreign_key="customertable.id")
     customer: CustomerTable | None = Relationship(back_populates="loans")
-    product_id: int | None = Field(default=None, foreign_key="producttable.id")
-    product: ProductTable | None = Relationship(back_populates="loans")
+    sales: list[SaleTable] = Relationship(back_populates="loan")
+
+
+class LoanPub(SQLModel):
+    customer: User
+    sales: list[SalePub]
 
 
 class Pay(Common):
@@ -133,6 +140,20 @@ class InventoryPub(Inventory):
 
     id: int
     stock: int
+
+
+class BillTable(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    quantity: int
+    product_id: int | None = Field(default=None, foreign_key="producttable.id")
+    product: ProductTable | None = Relationship(back_populates="bill")
+    sale_id: int | None = Field(default=None, foreign_key="saletable.id")
+    sale: SaleTable | None = Relationship(back_populates="bills")
+
+
+class BillPub(SQLModel):
+    product: ProductSalePub | None
+    quantity: int
 
 
 # pydantic  model for returning Product with invetory
