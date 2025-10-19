@@ -1,3 +1,4 @@
+from annotated_types import Timezone
 from sqlmodel import SQLModel, Relationship, Field, create_engine
 from datetime import datetime, timezone
 from typing import Optional
@@ -14,6 +15,8 @@ class User(SQLModel):
 
 class Admin(User, table=True):
     id: int | None = Field(default=None, primary_key=True)
+    created_at:datetime=Field(default=datetime.now(timezone.utc))
+    updated_at:datetime=Field(default=datetime.now(timezone.utc))
     password: str
 
 
@@ -26,6 +29,8 @@ class AdminPub(User):
 
 class Customer(User, table=True):
     id: int | None = Field(default=None, primary_key=True)
+    created_at:datetime=Field(default=datetime.now(timezone.utc))
+    updated_at:datetime=Field(default=datetime.now(timezone.utc))
     loan: Optional["Loan"] = Relationship(
         back_populates="customer", sa_relationship_kwargs={"uselist": False}
     )
@@ -35,17 +40,22 @@ class CustomerPub(User):
     id: int
 
 
+class CustomerLoan(SQLModel):
+    name: str
+
+
 # Sale model
 class Sale(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
-    date: datetime = Field(default=datetime.now(timezone.utc))
+    created_at:datetime=Field(default=datetime.now(timezone.utc))
+    updated_at:datetime=Field(default=datetime.now(timezone.utc))
     saleitems: list["SaleItem"] = Relationship(back_populates="sale")
     revenue: float = Field(default=0)
 
 
 class SalePub(SQLModel):
     id: int
-    date: datetime
+    created_at: datetime
     revenue: float
 
 
@@ -58,6 +68,8 @@ class SaleItemIn(SQLModel):
 
 class SaleItem(SaleItemIn, table=True):
     id: int | None = Field(default=None, primary_key=True)
+    created_at:datetime=Field(default=datetime.now(timezone.utc))
+    updated_at:datetime=Field(default=datetime.now(timezone.utc))
     sale_id: int | None = Field(default=None, foreign_key="sale.id")
     product_id: int | None = Field(default=None, foreign_key="product.id")
     loan_id: int | None = Field(default=None, foreign_key="loan.id")
@@ -68,6 +80,7 @@ class SaleItem(SaleItemIn, table=True):
 
 class SaleItemPub(SaleItemIn):
     id: int
+    created_at:datetime
     product: "ProductSale"
 
 
@@ -82,6 +95,8 @@ class ProductsIn(SQLModel):
 
 class Product(ProductsIn, table=True):
     id: int | None = Field(default=None, primary_key=True)
+    created_at:datetime=Field(default=datetime.now(timezone.utc))
+    updated_at:datetime=Field(default=datetime.now(timezone.utc))
     saleitems: list[SaleItem] = Relationship(back_populates="product")
     purchases: list["PurchaseItem"] = Relationship(back_populates="product")
 
@@ -92,6 +107,7 @@ class ProductSale(SQLModel):
 
 class ProductPub(ProductsIn):
     id: int
+    created_at:datetime
 
 
 # Loan model
@@ -102,6 +118,8 @@ class LoanIn(SQLModel):
 
 class Loan(LoanIn, table=True):
     id: int | None = Field(default=None, primary_key=True)
+    created_at:datetime=Field(default=datetime.now(timezone.utc))
+    updated_at:datetime=Field(default=datetime.now(timezone.utc))
     customer_id: int | None = Field(default=None, foreign_key="customer.id")
     saleitems: list[SaleItem] = Relationship(back_populates="loan")
     payitems: list["PayItem"] = Relationship(back_populates="loan")
@@ -110,6 +128,7 @@ class Loan(LoanIn, table=True):
 
 class LoanPub(LoanIn):
     id: int
+    customer: CustomerLoan
 
 
 # PayItem model
@@ -121,14 +140,15 @@ class PayItemIn(SQLModel):
 
 class PayItem(PayItemIn, table=True):
     id: int | None = Field(default=None, primary_key=True)
-    date: datetime = Field(default=datetime.now(timezone.utc))
+    created_at:datetime=Field(default=datetime.now(timezone.utc))
+    updated_at:datetime=Field(default=datetime.now(timezone.utc))
     loan_id: int | None = Field(default=None, foreign_key="loan.id")
     loan: Optional["Loan"] = Relationship(back_populates="payitems")
 
 
 class PayItemPub(PayItemIn):
     id: int
-    date: datetime
+    created_at: datetime
 
 
 # Purchase model
@@ -138,13 +158,14 @@ class ParchaseIn(SQLModel):
 
 class Purchase(ParchaseIn, table=True):
     id: int | None = Field(default=None, primary_key=True)
-    date: datetime = Field(default=datetime.now(timezone.utc))
+    created_at:datetime=Field(default=datetime.now(timezone.utc))
+    updated_at:datetime=Field(default=datetime.now(timezone.utc))
     purchaseitems: list["PurchaseItem"] = Relationship(back_populates="purchase")
 
 
 class PurchasePub(ParchaseIn):
     id: int
-    date: datetime
+    created_at:datetime
 
 
 # PurchaseItem model
@@ -158,6 +179,8 @@ class PurchaseItemIn(SQLModel):
 
 class PurchaseItem(PurchaseItemIn, table=True):
     id: int | None = Field(default=None, primary_key=True)
+    created_at:datetime=Field(default=datetime.now(timezone.utc))
+    updated_at:datetime=Field(default=datetime.now(timezone.utc))
     purchase_id: int | None = Field(default=None, foreign_key="purchase.id")
     purchase: Optional[Purchase] = Relationship(back_populates="purchaseitems")
     product_id: int | None = Field(default=None, foreign_key="product.id")
@@ -167,6 +190,7 @@ class PurchaseItem(PurchaseItemIn, table=True):
 class PurchaseItemPub(PurchaseItemIn):
     id: int
     product: ProductSale
+    created_at:datetime
 
 
 # Expenses model
@@ -178,12 +202,13 @@ class ExpenseIn(SQLModel):
 
 class Expense(ExpenseIn, table=True):
     id: int | None = Field(default=None, primary_key=True)
-    date: datetime = Field(default=datetime.now(timezone.utc))
+    created_at:datetime=Field(default=datetime.now(timezone.utc))
+    updated_at:datetime=Field(default=datetime.now(timezone.utc))
 
 
 class ExpensePub(ExpenseIn):
     id: int
-    date: datetime
+    created_at:datetime
 
 
 # fuction for initializing database

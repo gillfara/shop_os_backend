@@ -60,6 +60,10 @@ class CustomerControler:
         return customer
 
     @classmethod
+    def update(cls,id:int,model:User,session:Session):
+        customer = session
+
+    @classmethod
     def delete(cls, id: int, session: Session):
         customer = cls.get_one(id, session)
         if customer:
@@ -92,7 +96,7 @@ class SaleControler:
     def get_today_sale(cls, session: Session):
         today = datetime.now(timezone.utc)
         sale = session.exec(
-            select(Sale).where(func.date(Sale.date) == today.date())
+            select(Sale).where(func.date(Sale.created_at) == today.date())
         ).one_or_none()
         return sale
 
@@ -133,6 +137,7 @@ class ProductControler:
     @classmethod
     def update(cls, model: ProductsIn, id: int, session: Session):
         productdb = cls.get_one(id, session)
+        today = datetime.now(timezone.utc)
         if not productdb:
             return None
 
@@ -140,6 +145,7 @@ class ProductControler:
 
         for k, v in model.model_dump().items():
             setattr(productdb, k, v)
+            setattr(productdb,"updated_at",today)
         productdb.stock += product_stock
         session.add(productdb)
         session.commit()
@@ -205,10 +211,12 @@ class PayItemControler:
     @classmethod
     def update(cls, id: int, model: PayItemIn, session: Session):
         pay = cls.get_one(id, session)
+        today = datetime.now(timezone.utc)
         if not pay:
             return None
         for k, v in model.model_dump(exclude_unset=True).items():
             setattr(pay, k, v)
+            setattr(pay,"updated_at",today)
         session.add(pay)
         session.commit()
         session.refresh(pay)
@@ -243,12 +251,14 @@ class PurchaseControler:
         return purchase
 
     @classmethod
-    def update(cls, id: int, model: ParchaseIn, session):
+    def update(cls, id: int, model: ParchaseIn, session:Session):
         purchase = cls.get_one(id, session)
+        today = datetime.now(timezone.utc)
         if not purchase:
             return None
         for k, v in model.model_dump(exclude_unset=True).items():
             setattr(purchase, k, v)
+            setattr(purchase,"updated_at",today)
         session.add(purchase)
         session.commit()
         session.refresh(purchase)
@@ -293,11 +303,11 @@ class PurchaseItemControler:
     def get_one(cls, id: int, session: Session):
         item = session.get(PurchaseItem, id)
         return item
-
+    @classmethod
     def get_all(cls, offset: int, limit: int, session: Session):
         items = session.exec(select(PurchaseItem).offset(offset).limit(limit)).all()
         return items
-
+    @classmethod
     def delete(cls, id: int, session: Session):
         item = cls.get_one(id, session)
         if item:
@@ -317,7 +327,7 @@ class ExpenseControler:
 
     @classmethod
     def save_list(cls, items: list[ExpenseIn], session: Session):
-        dbitem = []
+        dbitem:list[Expense] = []
         for item in items:
             item = Expense.model_validate(item)
             dbitem.append(item)
@@ -340,8 +350,10 @@ class ExpenseControler:
     @classmethod
     def update(cls, id: int, model: ExpenseIn, session: Session):
         expense = cls.get_one(id, session)
+        today = datetime.now(timezone.utc)
         for k, v in model.model_dump(exclude_unset=True).items():
             setattr(expense, k, v)
+            setattr(expense,"updated_at",today)
         session.add(expense)
         session.commit()
         session.refresh(expense)

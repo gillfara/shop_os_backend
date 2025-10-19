@@ -1,10 +1,13 @@
 from fastapi import FastAPI, Depends, HTTPException, status
 from sqlmodel import Session, select
 from sqlalchemy import func
+from fastapi.middleware.cors import CORSMiddleware
 
 
 from models.model import *
 from controlers.controler import *
+from models.model import AdminPub, User
+# from models.model import
 
 
 def get_session():
@@ -15,6 +18,14 @@ def get_session():
 create_db_and_tables()
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allows all origins
+    allow_credentials=False,
+    allow_methods=["*"],  # Allows all methods (GET, POST, PUT, DELETE, etc.)
+    allow_headers=["*"],  # Allows all headers
+)
 
 
 @app.post("/admin/", response_model=AdminPub)
@@ -123,7 +134,7 @@ def create_sale(session: Session):
 async def add_sale(session: Session = Depends(get_session)):
     date = datetime.now(timezone.utc).date()
 
-    sale = session.exec(select(Sale).where(func.date(Sale.date) == date)).one_or_none()
+    sale = session.exec(select(Sale).where(func.date(Sale.created_at) == date)).one_or_none()
     if sale:
         return sale
 
@@ -250,6 +261,14 @@ async def delete_product(id: int, session: Session = Depends(get_session)):
     raise HTTPException(
         status.HTTP_404_NOT_FOUND, f"product with id {id} was not found"
     )
+
+
+@app.get("/loan/", response_model=list[LoanPub])
+async def get_all_loan(
+    offset: int = 0, limit: int = 30, session: Session = Depends(get_session)
+):
+    loans = LoanControler.get_all(offset, limit, session)
+    return loans
 
 
 @app.get("/loan/{id}/saleitems", response_model=list[SaleItemPub])
