@@ -60,7 +60,7 @@ class CustomerControler:
         return customer
 
     @classmethod
-    def update(cls,id:int,model:User,session:Session):
+    def update(cls, id: int, model: User, session: Session):
         customer = session
 
     @classmethod
@@ -145,7 +145,7 @@ class ProductControler:
 
         for k, v in model.model_dump().items():
             setattr(productdb, k, v)
-            setattr(productdb,"updated_at",today)
+            setattr(productdb, "updated_at", today)
         productdb.stock += product_stock
         session.add(productdb)
         session.commit()
@@ -189,6 +189,51 @@ class LoanControler:
         return None
 
 
+class InvoiceControler:
+    @classmethod
+    def save(cls, model: InvoiceIn, session: Session):
+        invoice = Invoice.model_validate(model)
+        session.add(invoice)
+        session.commit()
+        session.refresh(invoice)
+        return invoice
+
+    @classmethod
+    def get_all(cls, offset: int, limit: int, session: Session):
+        invoiceses = session.exec(select(Invoice).offset(offset).limit(limit)).all()
+        return invoiceses
+
+    @classmethod
+    def get_one(cls, id: int, session: Session):
+        invoice = session.get(Invoice, id)
+        return invoice
+
+    @classmethod
+    def update_amount(cls, id: int, amount: float, session: Session):
+        date = datetime.now(timezone.utc)
+        invoice = cls.get_one(id, session)
+        if not invoice:
+            return None
+        if amount < invoice.invoice_amount:
+            invoice.status = Status.partial
+        elif amount == invoice.invoice_amount:
+            invoice.status = Status.paid
+        invoice.paid_amount += amount
+        invoice.updated_at = date
+        session.add(invoice)
+        session.commit()
+        session.refresh(invoice)
+        return invoice
+
+    @classmethod
+    def delete(cls, id: int, session: Session):
+        invoice = cls.get_one(id, session)
+        if invoice:
+            session.delete(invoice)
+            return "successful deleted"
+        return None
+
+
 class PayItemControler:
     @classmethod
     def save(cls, model: PayItem, session: Session):
@@ -216,7 +261,7 @@ class PayItemControler:
             return None
         for k, v in model.model_dump(exclude_unset=True).items():
             setattr(pay, k, v)
-            setattr(pay,"updated_at",today)
+            setattr(pay, "updated_at", today)
         session.add(pay)
         session.commit()
         session.refresh(pay)
@@ -251,14 +296,14 @@ class PurchaseControler:
         return purchase
 
     @classmethod
-    def update(cls, id: int, model: ParchaseIn, session:Session):
+    def update(cls, id: int, model: ParchaseIn, session: Session):
         purchase = cls.get_one(id, session)
         today = datetime.now(timezone.utc)
         if not purchase:
             return None
         for k, v in model.model_dump(exclude_unset=True).items():
             setattr(purchase, k, v)
-            setattr(purchase,"updated_at",today)
+            setattr(purchase, "updated_at", today)
         session.add(purchase)
         session.commit()
         session.refresh(purchase)
@@ -303,10 +348,12 @@ class PurchaseItemControler:
     def get_one(cls, id: int, session: Session):
         item = session.get(PurchaseItem, id)
         return item
+
     @classmethod
     def get_all(cls, offset: int, limit: int, session: Session):
         items = session.exec(select(PurchaseItem).offset(offset).limit(limit)).all()
         return items
+
     @classmethod
     def delete(cls, id: int, session: Session):
         item = cls.get_one(id, session)
@@ -327,7 +374,7 @@ class ExpenseControler:
 
     @classmethod
     def save_list(cls, items: list[ExpenseIn], session: Session):
-        dbitem:list[Expense] = []
+        dbitem: list[Expense] = []
         for item in items:
             item = Expense.model_validate(item)
             dbitem.append(item)
@@ -353,7 +400,7 @@ class ExpenseControler:
         today = datetime.now(timezone.utc)
         for k, v in model.model_dump(exclude_unset=True).items():
             setattr(expense, k, v)
-            setattr(expense,"updated_at",today)
+            setattr(expense, "updated_at", today)
         session.add(expense)
         session.commit()
         session.refresh(expense)

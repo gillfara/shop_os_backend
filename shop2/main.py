@@ -2,6 +2,7 @@ from fastapi import FastAPI, Depends, HTTPException, status
 from sqlmodel import Session, select
 from sqlalchemy import func
 from fastapi.middleware.cors import CORSMiddleware
+from datetime import datetime, timezone
 
 
 from models.model import *
@@ -13,6 +14,14 @@ from models.model import AdminPub, User
 def get_session():
     with Session(engine) as session:
         yield session
+
+
+def create_sale(session: Session):
+    sale = Sale()
+    session.add(sale)
+    session.commit()
+    session.refresh(sale)
+    return sale
 
 
 create_db_and_tables()
@@ -118,23 +127,95 @@ async def get_customer_loan(id: int, session: Session = Depends(get_session)):
     if customer:
         return customer.loan
     raise HTTPException(
-        status.HTTP_404_NOT_FOUND, f"no customer with id {id} was found"
+        status.HTTP_404_NOT_FOUND, f"no customer with id {id} was not found"
     )
 
 
-def create_sale(session: Session):
-    sale = Sale()
-    session.add(sale)
+# endpoints for Invoices
+@app.post("/invoices/", response_model=InvoicePub)
+async def add_invoice(data: InvoiceInputData, session: Session = Depends(get_session)):
+    # loan_id = data.customer_id
+    customer = CustomerControler.get_one(data.customer_id, session)
+    if not customer:
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, f"cutomer with id {id} was not found"
+        )
+    date = datetime.now(timezone.utc).date()
+
+    sale = session.exec(
+        select(Sale).where(func.date(Sale.created_at) == date)
+    ).one_or_none()
+
+    if not sale:
+        sale = create_sale(session)
+
+    salesitems = []
+    invoice_amount = 0
+    cogs = 0
+    for item in data.salesitems:
+        itemin = SaleItem.model_validate(item)
+        product = ProductControler.get_one(item.product_id, session)
+        cogs += product.buying_price * item.quantity
+        itemin.sale = sale
+        salesitems.append(itemin)
+        invoice_amount += item.amount * item.quantity
+    sale.revenue += invoice_amount
+    sale.cost_of_goods += cogs
+    loan = customer.loan
+
+    if not loan:
+        loan_in = LoanIn(total=invoice_amount)
+        loan_in
+        loan = LoanControler.save(loan_in, session)
+        loan.customer = customer
+        session.add(loan)
+        session.commit()
+        session.refresh(loan)
+
+    else:
+        loan.total += invoice_amount
+    invoicein = Invoice(loan=loan, salesitems=salesitems)
+    invoicein.invoice_amount = invoice_amount
+    invoice = InvoiceControler.save(invoicein, session)
+    return invoice
+
+
+@app.get("/invoices/{id}", response_model=InvoicePub)
+async def get_invoice(id: int, session: Session = Depends(get_session)):
+    invoices = InvoiceControler.get_one(id, session)
+    return invoices
+
+
+@app.get("/invoices/")
+async def get_invoices(
+    offset: int, limit: int, session: Session = Depends(get_session)
+):
+    invoice = InvoiceControler.get_all(offset=offset, limit=limit, session=session)
+    return invoice
+
+
+@app.patch("/invoices/{id}", response_model=InvoicePub)
+async def patch_invoices(
+    id: int, amount: float, session: Session = Depends(get_session)
+):
+    invoice = InvoiceControler.update_amount(id, amount, session)
+    if not invoice:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "no invoice was found")
+    invoice.loan.paid_amount += amount
+    session.add(invoice)
     session.commit()
-    session.refresh(sale)
-    return sale
+    session.refresh(invoice)
+    return invoice
 
 
+# sales endpoints
 @app.post("/sales/")
 async def add_sale(session: Session = Depends(get_session)):
     date = datetime.now(timezone.utc).date()
 
-    sale = session.exec(select(Sale).where(func.date(Sale.created_at) == date)).one_or_none()
+    sale = session.exec(
+        select(Sale).where(func.date(Sale.created_at) == date)
+    ).one_or_none()
     if sale:
         return sale
 
