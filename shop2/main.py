@@ -155,6 +155,10 @@ async def add_invoice(data: InvoiceInputData, session: Session = Depends(get_ses
     for item in data.salesitems:
         itemin = SaleItem.model_validate(item)
         product = ProductControler.get_one(item.product_id, session)
+        if not product:
+            raise HTTPException(
+                status.HTTP_404_NOT_FOUND, "some products were not found"
+            )
         cogs += product.buying_price * item.quantity
         itemin.sale = sale
         salesitems.append(itemin)
@@ -206,6 +210,31 @@ async def patch_invoices(
     session.commit()
     session.refresh(invoice)
     return invoice
+
+
+@app.get("/invoices/{id}/salesitems/", response_model=list[SaleItemPub])
+async def get_invoice_salesitems(id: int, session: Session = Depends(get_session)):
+    invoice = InvoiceControler.get_one(id, session)
+    if not invoice:
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, "no invoice with such id was found"
+        )
+    return invoice.salesitems
+
+
+@app.delete("/invoices/{id}/")
+async def delete_invoice(id: int, session: Session = Depends(get_session)):
+    invoice = InvoiceControler.get_one(id, session)
+    if not invoice:
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, "no invoice with such id was found"
+        )
+    loan = invoice.loan
+    loan.total -= invoice.invoice_amount
+    loan.paid_amount -= invoice.paid_amount
+    session.add(loan)
+    session.commit()
+    session.delete(invoice)
 
 
 # sales endpoints
@@ -352,85 +381,75 @@ async def get_all_loan(
     return loans
 
 
-@app.get("/loan/{id}/saleitems", response_model=list[SaleItemPub])
+@app.get("/loan/{id}/invoices", response_model=list[InvoicePub])
 async def get_sell_items(id: int, session: Session = Depends(get_session)):
     loan = LoanControler.get_one(id, session)
     if loan:
-        return loan.saleitems
+        return loan.invoices
     raise HTTPException(status.HTTP_404_NOT_FOUND, f"loan with id {id} was not found")
 
 
-@app.post("/loan/{id}/saleitems/", response_model=list[SaleItemPub])
-async def add_loan_sales(
-    id: int, items: list[SaleItemIn], session: Session = Depends(get_session)
-):
-    loan = LoanControler.get_one(id, session)
-    if not loan:
-        raise HTTPException(
-            status.HTTP_404_NOT_FOUND, f"loan with id {id} was not found"
-        )
-    sale = SaleControler.get_today_sale(session)
-    if not sale:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "there is no sale")
-    prev_loan_amount = loan.total
-    total_revenue = 0
-    itemdb = []
-    for item in items:
-        product = ProductControler.get_one(item.product_id, session)
-        if not product:
-            raise HTTPException(
-                status.HTTP_404_NOT_FOUND,
-                f"product with id {item.product_id} was not found",
-            )
-        if product.stock <= item.quantity:
-            raise HTTPException(
-                status.HTTP_406_NOT_ACCEPTABLE,
-                f"you can not sell {item.quantity} {product.name} while there are {product.stock} in the stock",
-            )
-        product.stock -= item.quantity
-        s_item = SaleItem.model_validate(item)
-        s_item.product = product
-        total_revenue += s_item.amount * s_item.quantity
-        prev_loan_amount += s_item.amount * s_item.quantity
-        itemdb.append(s_item)
-    loan.saleitems.extend(itemdb)
-    loan.total = total_revenue
-    sale.saleitems.extend(itemdb)
-    sale.revenue += total_revenue
-    session.add(loan)
-    session.commit()
-    session.refresh(loan)
-    return loan.saleitems
-
-
-@app.post("/loan/{id}/pay/", response_model=list[PayItemPub])
+# this endpoint should take the paid amount and iterate over all the loan's invoices and pay them accordingly
+@app.post("/loan/{id}/pay/", response_model=list[InvoicePub])
 async def add_payitem(
-    id: int, payitems: list[PayItemIn], session: Session = Depends(get_session)
+    id: int, payitem: PayItemIn, session: Session = Depends(get_session)
 ):
     loan = LoanControler.get_one(id, session)
     if not loan:
         raise HTTPException(
             status.HTTP_404_NOT_FOUND, f"loan with id {id} was not found"
         )
-    items = []
+    today = datetime.now(timezone.utc)
 
-    total_pay = 0
-    for item in payitems:
-        item = PayItem.model_validate(item)
-        total_pay += item.amount
-        items.append(item)
+    total_pay = payitem.amount
+    used_amount = 0
+    item = PayItem.model_validate(payitem)
+    item.loan = loan
+    if not loan.invoices:
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, "this loan has no invoices to pay for"
+        )
+    for invoice in loan.invoices:
+        if total_pay == 0:
+            break
+        if invoice.status == Status.paid:
+            continue
 
-    loan.paid_amount += total_pay
+        elif invoice.status == Status.partial:
+            remaining_amount = invoice.invoice_amount - invoice.paid_amount
+            if total_pay >= remaining_amount:
+                invoice.paid_amount += remaining_amount
+                invoice.status = Status.paid
+                invoice.updated_at = today
+                total_pay -= remaining_amount
+                used_amount += remaining_amount
+
+        elif invoice.status == Status.pending:
+            remaining_amount = invoice.invoice_amount - invoice.paid_amount
+            if total_pay >= remaining_amount:
+                invoice.paid_amount += remaining_amount
+                invoice.status = Status.paid
+                invoice.updated_at = today
+                total_pay -= remaining_amount
+                used_amount += remaining_amount
+            else:
+                invoice.paid_amount += total_pay
+                invoice.status = Status.partial
+                invoice.updated_at = today
+                used_amount += total_pay
+
+    loan.paid_amount += used_amount
+    loan.updated_at = today
     if loan.paid_amount > loan.total:
         raise HTTPException(
             status.HTTP_406_NOT_ACCEPTABLE,
             "you can not pay more that what you are supose to pay",
         )
-    loan.payitems.extend(items)
+
     session.add(loan)
     session.commit()
     session.refresh(loan)
-    return loan.payitems
+    return loan.invoices
 
 
 # this should be modifyied to only return a single pay item
