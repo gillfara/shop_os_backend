@@ -160,7 +160,9 @@ async def add_invoice(data: InvoiceInputData, session: Session = Depends(get_ses
                 status.HTTP_404_NOT_FOUND, "some products were not found"
             )
         cogs += product.buying_price * item.quantity
+        product.avalable_stock -= item.quantity
         itemin.sale = sale
+        itemin.product = product
         salesitems.append(itemin)
         invoice_amount += item.amount * item.quantity
     sale.revenue += invoice_amount
@@ -399,6 +401,11 @@ async def add_payitem(
         raise HTTPException(
             status.HTTP_404_NOT_FOUND, f"loan with id {id} was not found"
         )
+    if payitem.amount > (loan.total - loan.paid_amount):
+        raise HTTPException(
+            status.HTTP_406_NOT_ACCEPTABLE,
+            "you can not pay more that what you are supose to pay",
+        )
     today = datetime.now(timezone.utc)
 
     total_pay = payitem.amount
@@ -440,11 +447,6 @@ async def add_payitem(
 
     loan.paid_amount += used_amount
     loan.updated_at = today
-    if loan.paid_amount > loan.total:
-        raise HTTPException(
-            status.HTTP_406_NOT_ACCEPTABLE,
-            "you can not pay more that what you are supose to pay",
-        )
 
     session.add(loan)
     session.commit()

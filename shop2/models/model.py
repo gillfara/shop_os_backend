@@ -104,6 +104,7 @@ class ProductsIn(SQLModel):
 
 class Product(ProductsIn, table=True):
     id: int | None = Field(default=None, primary_key=True)
+    avalable_stock: float = Field(default=0)
     created_at: datetime = Field(default=datetime.now(timezone.utc))
     updated_at: datetime = Field(default=datetime.now(timezone.utc))
     saleitems: list[SaleItem] = Relationship(back_populates="product")
@@ -117,6 +118,7 @@ class ProductSale(SQLModel):
 class ProductPub(ProductsIn):
     id: int
     created_at: datetime
+    available_stock: float
 
 
 # Loan model

@@ -112,6 +112,7 @@ class ProductControler:
     @classmethod
     def save(cls, model: ProductsIn, session: Session):
         model = Product.model_validate(model)
+        model.avalable_stock = model.stock
         session.add(model)
         session.commit()
         session.refresh(model)
@@ -147,6 +148,7 @@ class ProductControler:
             setattr(productdb, k, v)
             setattr(productdb, "updated_at", today)
         productdb.stock += product_stock
+        productdb.avalable_stock += product_stock
         session.add(productdb)
         session.commit()
         session.refresh(productdb)
