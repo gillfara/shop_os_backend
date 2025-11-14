@@ -4,6 +4,8 @@ from sqlalchemy import func
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime, timezone
 
+from starlette.status import HTTP_404_NOT_FOUND
+
 
 from models.model import *
 from controlers.controler import *
@@ -22,6 +24,24 @@ def create_sale(session: Session):
     session.commit()
     session.refresh(sale)
     return sale
+
+
+def check_or_create_prod_stat(product_id: int, date: datetime, session: Session):
+    prod_stat = session.exec(
+        select(ProductStatistics)
+        .where(func.date(ProductStatistics.created_at) == date.date())
+        .where(ProductStatistics.product_id == item.produc_id)
+    ).one_or_none()
+    if not prod_stat:
+        prod_stat = ProductStatisticsControler.add_product_statistics_from_product(
+            product.id, 0, session
+        )
+        if not prod_stat:
+            raise HTTPException(
+                status.HTTP_404_NOT_FOUND,
+                "product statics table was not found and it could not be created",
+            )
+    return prod_stat
 
 
 create_db_and_tables()
@@ -159,6 +179,14 @@ async def add_invoice(data: InvoiceInputData, session: Session = Depends(get_ses
             raise HTTPException(
                 status.HTTP_404_NOT_FOUND, "some products were not found"
             )
+            # logic for updating product statistics for individual product
+        prod_stat = check_or_create_prod_stat(product.id, date, session)
+
+        prod_stat.quantity_sold += item.quantity
+        prod_stat.updated_at = date  # change updated_at even if it has been created now it will be almost the same as same as created at
+        product.productstatistics.append(
+            prod_stat
+        )  # we append prod_stat in product productstatistic so that it can be updated when we save product
         cogs += product.buying_price * item.quantity
         product.avalable_stock -= item.quantity
         itemin.sale = sale
@@ -169,6 +197,7 @@ async def add_invoice(data: InvoiceInputData, session: Session = Depends(get_ses
     sale.cost_of_goods += cogs
     loan = customer.loan
 
+    # logic for updating loan whenever we save invoice loan must also be updated
     if not loan:
         loan_in = LoanIn(total=invoice_amount)
         loan_in
@@ -277,6 +306,7 @@ async def add_sale_items(
     sale_items: list[SaleItemIn], id: int, session: Session = Depends(get_session)
 ):
     sale = SaleControler.get_one(id, session)
+    date = datetime.now(timezone.utc)
     if sale:
         items = []
         for item in sale_items:
@@ -285,8 +315,11 @@ async def add_sale_items(
                 raise HTTPException(
                     status.HTTP_404_NOT_FOUND, f"product with id {id} was not found"
                 )
+            prod_stat = check_or_create_prod_stat(product.id, date, session)
             if product.stock > item.quantity:
                 product.stock = product.stock - item.quantity
+                prod_stat.quantity_sold += item.quantity
+                product.productstatistics.append(prod_stat)
             else:
                 raise HTTPException(
                     status.HTTP_406_NOT_ACCEPTABLE,
@@ -601,3 +634,21 @@ async def delete_expense(id: int, session: Session = Depends(get_session)):
     if expense:
         return expense
     raise HTTPException(status.HTTP_404_NOT_FOUND, "expense with such id was not found")
+
+
+@app.get("/products{id}/statistics", response_model=list[ProductStatisticsPub])
+async def get_product_statistics(
+    id: int, session: Session, limit: int = -1, offset: int = 0
+):
+    stat = ProductStatisticsControler.get_product_stat(id, limit, offset, session)
+    if not stat:
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, "no stat for this products were found"
+        )
+    return stat
+
+
+@app.get("/products/{id}/statistics", response_model=ProductStatisticsPub)
+async def get_product_statistics_by_date(id: int, date: datetime, session: Session):
+    stats = ProductStatisticsControler.get_product_stat_by_date(id, date, session)
+    return stats

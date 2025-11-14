@@ -109,6 +109,9 @@ class Product(ProductsIn, table=True):
     updated_at: datetime = Field(default=datetime.now(timezone.utc))
     saleitems: list[SaleItem] = Relationship(back_populates="product")
     purchases: list["PurchaseItem"] = Relationship(back_populates="product")
+    productstatistics: list["ProductStatistics"] = Relationship(
+        back_populates="product"
+    )
 
 
 class ProductSale(SQLModel):
@@ -119,6 +122,22 @@ class ProductPub(ProductsIn):
     id: int
     created_at: datetime
     available_stock: float
+
+
+class ProductStatistics(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    created_at: datetime = Field(default=datetime.now(timezone.utc))
+    updated_at: datetime = Field(default=datetime.now(timezone.utc))
+    product_id: int | None = Field(default=None, foreign_key="product.id")
+    quantity_sold: float = Field(default=0)
+    product: Product | None = Relationship(back_populates="productstatistics")
+
+
+class ProductStatisticsPub(SQLModel):
+    id: int
+    created_at: datetime
+    updated_at: datetime
+    product_id
 
 
 # Loan model

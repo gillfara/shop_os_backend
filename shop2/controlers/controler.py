@@ -415,3 +415,80 @@ class ExpenseControler:
             session.delete(expense)
             return "successful"
         return None
+
+
+class ProductStatisticsControler:
+    name = ProductStatistics
+
+    @classmethod
+    def save(cls, model: ProductStatistics, session: Session):
+        modeldb = ProductStatistics.model_validate(ProductStatistics)
+        session.add(modeldb)
+        session.commit()
+        session.refresh(modeldb)
+        return modeldb
+
+    @classmethod
+    def add_product_statistics_from_product(
+        cls, product_id: int, quantity: float, session: Session
+    ):
+        date = datetime.now(timezone.utc)
+        product_stat = ProductStatistics(quantity_sold=quantity, product_id=product_id)
+        product_stat.created_at = date
+        product_stat.updated_at = date
+        return cls.save(product_stat, session)
+
+    @classmethod
+    def get_all(cls, limit: int, offset: int, session: Session):
+        stats = session.exec(
+            select(ProductStatistics).offset(offset).limit(limit)
+        ).all()
+        return stats
+
+    @classmethod
+    def get_product_stat(cls, id: int, limit: int, offset: int, session: Session):
+        stat = session.exec(
+            select(ProductStatistics)
+            .where(ProductStatistics.product_id == id)
+            .limit(limit)
+            .offset(offset)
+        ).all()
+        if not stat:
+            return None
+        return stat
+
+    @classmethod
+    def get_product_stat_by_date(cls, id: int, date: datetime, session: Session):
+        stat = session.exec(
+            select(cls.name)
+            .where(cls.name.product_id == id)
+            .where(func.date(cls.name.created_at) == date.date())
+        ).one_or_none()
+        return stat
+
+    @classmethod
+    def get_one(cls, id: int, session: Session):
+        stat = session.get(ProductStatistics, id)
+        return stat
+
+    @classmethod
+    def delete(cls, id: int, session: Session):
+        prod_stat = cls.get_one(id, session)
+        if not prod_stat:
+            return None
+        session.deleted(prod_stat)
+        return "deleted successful"
+
+    @classmethod
+    def update(cls, id: int, prod_stat: ProductStatistics, session: Session):
+        date = datetime.now(timezone.utc)
+        prodStat = cls.get_one(id, session)
+        if not prodStat:
+            return None
+        for k, v in prod_stat.model_dump():
+            setattr(prodStat, k, v)
+        prodStat.updated_at = date
+        session.add(prodStat)
+        session.commit()
+        session.refresh(prodStat)
+        return prodStat
