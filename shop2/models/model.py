@@ -121,7 +121,7 @@ class ProductSale(SQLModel):
 class ProductPub(ProductsIn):
     id: int
     created_at: datetime
-    available_stock: float
+    avalable_stock: float
 
 
 class ProductStatistics(SQLModel, table=True):
@@ -137,7 +137,8 @@ class ProductStatisticsPub(SQLModel):
     id: int
     created_at: datetime
     updated_at: datetime
-    product_id
+    product_id: int
+    quantity_sold: float
 
 
 # Loan model

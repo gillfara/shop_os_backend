@@ -2,7 +2,7 @@ from fastapi import FastAPI, Depends, HTTPException, status
 from sqlmodel import Session, select
 from sqlalchemy import func
 from fastapi.middleware.cors import CORSMiddleware
-from datetime import datetime, timezone
+from datetime import datetime, timezone, date
 
 from starlette.status import HTTP_404_NOT_FOUND
 
@@ -30,11 +30,11 @@ def check_or_create_prod_stat(product_id: int, date: datetime, session: Session)
     prod_stat = session.exec(
         select(ProductStatistics)
         .where(func.date(ProductStatistics.created_at) == date.date())
-        .where(ProductStatistics.product_id == item.produc_id)
+        .where(ProductStatistics.product_id == product_id)
     ).one_or_none()
     if not prod_stat:
         prod_stat = ProductStatisticsControler.add_product_statistics_from_product(
-            product.id, 0, session
+            product_id, 0, session
         )
         if not prod_stat:
             raise HTTPException(
@@ -160,10 +160,10 @@ async def add_invoice(data: InvoiceInputData, session: Session = Depends(get_ses
         raise HTTPException(
             status.HTTP_404_NOT_FOUND, f"cutomer with id {id} was not found"
         )
-    date = datetime.now(timezone.utc).date()
+    date = datetime.now(timezone.utc)
 
     sale = session.exec(
-        select(Sale).where(func.date(Sale.created_at) == date)
+        select(Sale).where(func.date(Sale.created_at) == date.date())
     ).one_or_none()
 
     if not sale:
@@ -638,7 +638,7 @@ async def delete_expense(id: int, session: Session = Depends(get_session)):
 
 @app.get("/products{id}/statistics", response_model=list[ProductStatisticsPub])
 async def get_product_statistics(
-    id: int, session: Session, limit: int = -1, offset: int = 0
+    id: int, session: Session = Depends(get_session), limit: int = -1, offset: int = 0
 ):
     stat = ProductStatisticsControler.get_product_stat(id, limit, offset, session)
     if not stat:
@@ -649,6 +649,12 @@ async def get_product_statistics(
 
 
 @app.get("/products/{id}/statistics", response_model=ProductStatisticsPub)
-async def get_product_statistics_by_date(id: int, date: datetime, session: Session):
+async def get_product_statistics_by_date(
+    id: int, date: date, session: Session = Depends(get_session)
+):
     stats = ProductStatisticsControler.get_product_stat_by_date(id, date, session)
+    if not stats:
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, "no product statistics for that date"
+        )
     return stats

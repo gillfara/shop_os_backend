@@ -2,7 +2,7 @@ from models.model import *
 from sqlmodel import Session, select
 from sqlalchemy import func
 from fastapi import Depends
-from datetime import datetime, timezone
+from datetime import datetime, timezone, date
 import copy
 
 
@@ -436,7 +436,10 @@ class ProductStatisticsControler:
         product_stat = ProductStatistics(quantity_sold=quantity, product_id=product_id)
         product_stat.created_at = date
         product_stat.updated_at = date
-        return cls.save(product_stat, session)
+        session.add(product_stat)
+        session.commit()
+        session.refresh(product_stat)
+        return product_stat
 
     @classmethod
     def get_all(cls, limit: int, offset: int, session: Session):
@@ -458,11 +461,11 @@ class ProductStatisticsControler:
         return stat
 
     @classmethod
-    def get_product_stat_by_date(cls, id: int, date: datetime, session: Session):
+    def get_product_stat_by_date(cls, id: int, date: date, session: Session):
         stat = session.exec(
             select(cls.name)
             .where(cls.name.product_id == id)
-            .where(func.date(cls.name.created_at) == date.date())
+            .where(func.date(cls.name.created_at) == date)
         ).one_or_none()
         return stat
 
