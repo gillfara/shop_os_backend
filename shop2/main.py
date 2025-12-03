@@ -402,6 +402,7 @@ async def delete_product(id: int, session: Session = Depends(get_session)):
     product = ProductControler.get_one(id, session)
     if product:
         session.delete(product)
+        session.commit()
         return f"product {product.name} was deleted succesfull"
     raise HTTPException(
         status.HTTP_404_NOT_FOUND, f"product with id {id} was not found"
@@ -501,6 +502,7 @@ async def delete_pay_item(id: int, session: Session = Depends(get_session)):
     pay = PayItemControler.get_one(id, session)
     if pay:
         session.delete(pay)
+        session.commit()
         return "pay item was deleted successfull"
     raise HTTPException(
         status.HTTP_404_NOT_FOUND, f"no pay item with id {id} was found"
@@ -550,6 +552,7 @@ async def delete_purchase(id: int, session: Session = Depends(get_session)):
     purchase = PurchaseControler.get_one(id, session)
     if purchase:
         session.delete(purchase)
+        session.commit()
         return "successful"
     raise HTTPException(
         status.HTTP_404_NOT_FOUND, f"no purchase with id {id} was found"

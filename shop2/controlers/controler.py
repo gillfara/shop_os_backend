@@ -35,6 +35,7 @@ class AdminControler:
         admin = session.get(Admin, id)
         if admin:
             session.delete(admin)
+            session.commit()
             return "sucessful"
         return None
 
@@ -68,8 +69,10 @@ class CustomerControler:
         customer = cls.get_one(id, session)
         if customer:
             session.delete(customer)
+            session.commit()
             return "successfull"
         return None
+
 
 
 class SaleControler:
@@ -104,6 +107,8 @@ class SaleControler:
     def delete(cls, id: int, session: Session):
         sale = cls.get_one(id, session)
         if sale:
+            session.delete(sale)
+            session.commit()
             return "successfull"
         return None
 
@@ -159,6 +164,7 @@ class ProductControler:
         product = cls.get_one(id, session)
         if product:
             session.delete(product)
+            session.commit()
             return "success"
         return None
 
@@ -187,6 +193,7 @@ class LoanControler:
         loan = cls.get_one(id, session)
         if loan:
             session.delete(loan)
+            session.commit()
             return "deleted successful"
         return None
 
@@ -232,6 +239,7 @@ class InvoiceControler:
         invoice = cls.get_one(id, session)
         if invoice:
             session.delete(invoice)
+            session.commit()
             return "successful deleted"
         return None
 
@@ -274,6 +282,7 @@ class PayItemControler:
         payitem = cls.get_one(id, session)
         if payitem:
             session.delete(payitem)
+            session.commit()
             return "successful deleted"
         return None
 
@@ -316,6 +325,7 @@ class PurchaseControler:
         purchase = cls.get_one(id, session)
         if purchase:
             session.delete(purchase)
+            session.commit()
             return "successful"
         return None
 
@@ -361,6 +371,7 @@ class PurchaseItemControler:
         item = cls.get_one(id, session)
         if item:
             session.delete(item)
+            session.commit()
             return "successful"
         return None
 
@@ -413,6 +424,7 @@ class ExpenseControler:
         expense = cls.get_one(id, session)
         if expense:
             session.delete(expense)
+            session.commit()
             return "successful"
         return None
 
@@ -479,7 +491,8 @@ class ProductStatisticsControler:
         prod_stat = cls.get_one(id, session)
         if not prod_stat:
             return None
-        session.deleted(prod_stat)
+        session.delete(prod_stat)
+        session.commit()
         return "deleted successful"
 
     @classmethod
