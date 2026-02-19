@@ -1,15 +1,14 @@
-from fastapi import FastAPI, Depends, HTTPException, status
-from sqlmodel import Session, select
-from sqlalchemy import func
-from fastapi.middleware.cors import CORSMiddleware
-from datetime import datetime, timezone, date
+from datetime import date, datetime, timezone
 
+from controlers.controler import *
+from fastapi import Depends, FastAPI, HTTPException, WebSocket, status
+from fastapi.middleware.cors import CORSMiddleware
+from models.model import *
+from models.model import AdminPub, User
+from sqlalchemy import func
+from sqlmodel import Session, select
 from starlette.status import HTTP_404_NOT_FOUND
 
-
-from models.model import *
-from controlers.controler import *
-from models.model import AdminPub, User
 # from models.model import
 
 
@@ -661,3 +660,23 @@ async def get_product_statistics_by_date(
             status.HTTP_404_NOT_FOUND, "no product statistics for that date"
         )
     return stats
+
+
+connection = set()
+
+
+async def broadcast(connections: set[WebSocket], data: dict):
+    for ws in connections:
+        await ws.send_json(data)
+
+
+@app.websocket("/ws")
+async def stats_endpoints(websockets: WebSocket):
+    await websockets.accept()
+    connection.add(websockets)
+
+    try:
+        while True:
+            pass
+    finally:
+        connection.remove(websockets)

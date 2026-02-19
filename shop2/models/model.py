@@ -233,6 +233,7 @@ class Purchase(ParchaseIn, table=True):
 
 class PurchasePub(ParchaseIn):
     id: int
+    updated_at: datetime
     created_at: datetime
 
 
@@ -240,7 +241,7 @@ class PurchasePub(ParchaseIn):
 
 
 class PurchaseItemIn(SQLModel):
-    amount: float  # amount is the product price
+    amount: float  # amount is the product price times the number of product
     product_id: int
     quantity: float
 
