@@ -1,9 +1,10 @@
-from models.model import *
-from sqlmodel import Session, select
-from sqlalchemy import func
-from fastapi import Depends
-from datetime import datetime, timezone, date
 import copy
+from datetime import date, datetime, timezone
+
+from fastapi import Depends
+from models.model import *
+from sqlalchemy import func
+from sqlmodel import Session, select
 
 
 class NotFound(Exception):
@@ -72,7 +73,6 @@ class CustomerControler:
             session.commit()
             return "successfull"
         return None
-
 
 
 class SaleControler:
@@ -295,6 +295,42 @@ class PurchaseControler:
         session.commit()
         session.refresh(purchase)
         return purchase
+
+    @classmethod
+    def save_bulk(cls, model: PurchaseIn2, session: Session):
+        purchase_items = model.purchaseitems
+        validated_items = []
+        total = 0
+        for item in purchase_items:
+            dbitem = PurchaseItem.model_validate(item)
+            total += item.amount
+            buying_price = item.amount / item.quantity
+            print(total)
+            if item.product_id is not None:
+                product = ProductControler.get_one(item.product_id, session)
+                print(product)
+                if product:
+                    product.stock = product.avalable_stock + item.quantity
+                    product.avalable_stock += item.quantity
+                    product.buying_price = buying_price
+                    dbitem.product = product
+                else:
+                    return None
+            else:
+                print("no product found")
+                return None
+            validated_items.append(dbitem)
+        if total != model.amount:
+            print(total, model.amount)
+            return None
+
+        dbmodel = model
+        dbmodel.purchaseitems = validated_items
+        dbmodel = Purchase.model_validate(dbmodel)
+        session.add(dbmodel)
+        session.commit()
+        session.refresh(dbmodel)
+        return dbmodel
 
     @classmethod
     def get_all(cls, offset: int, limit: int, session: Session):

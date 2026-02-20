@@ -516,27 +516,27 @@ async def update_pay_item(
     return pay
 
 
-@app.post("/purchase/", response_model=PurchasePub)
-async def add_purchase(model: ParchaseIn, session: Session = Depends(get_session)):
-    purchase = PurchaseControler.save(model, session)
-    return purchase
+# @app.post("/purchase/", response_model=PurchasePub)
+# async def add_purchase(model: ParchaseIn, session: Session = Depends(get_session)):
+#     purchase = PurchaseControler.save(model, session)
+#     return purchase
 
 
-@app.get("/purchase/", response_model=list[PurchasePub])
-async def get_all_purchase(
-    offset: int = 0, limit: int = 30, session: Session = Depends(get_session)
-):
-    purchases = PurchaseControler.get_all(offset, limit, session)
-    return purchases
+# @app.get("/purchase/", response_model=list[PurchasePub], tags=["Purchase"])
+# async def get_all_purchase(
+#     offset: int = 0, limit: int = 30, session: Session = Depends(get_session)
+# ):
+#     purchases = PurchaseControler.get_all(offset, limit, session)
+#     return purchases
 
 
-@app.get("/purchase/{id}/", response_model=PurchasePub)
+@app.get("/purchase/{id}/", response_model=PurchasePub, tags=["Purchase"])
 async def get_purchase(id: int, session: Session = Depends(get_session)):
     purchase = PurchaseControler.get_one(id, session)
     return purchase
 
 
-@app.put("/purchase/{id}/", response_model=PurchasePub)
+@app.put("/purchase/{id}/", response_model=PurchasePub, tags=["Purchase"])
 async def update_purchase(
     id: int, model: ParchaseIn, session: Session = Depends(get_session)
 ):
@@ -546,7 +546,7 @@ async def update_purchase(
     raise HTTPException(status.HTTP_404_NOT_FOUND, "there is no purchase found")
 
 
-@app.delete("/purchase/{id}/")
+@app.delete("/purchase/{id}/", tags=["Purchase"])
 async def delete_purchase(id: int, session: Session = Depends(get_session)):
     purchase = PurchaseControler.get_one(id, session)
     if purchase:
@@ -558,7 +558,22 @@ async def delete_purchase(id: int, session: Session = Depends(get_session)):
     )
 
 
-@app.post("/purchase/{id}/purchaseitem/", response_model=PurchaseItemPub)
+@app.post("/purchase/", response_model=PurchasePub, tags=["Purchase"])
+async def save_purchase_bulk(
+    purchase: PurchaseIn2, session: Session = Depends(get_session)
+):
+    dbmodel = PurchaseControler.save_bulk(purchase, session)
+    if dbmodel is None:
+        raise HTTPException(
+            status.HTTP_406_NOT_ACCEPTABLE,
+            "Purchase amount does not match the sum of the indidual items",
+        )
+    return dbmodel
+
+
+@app.post(
+    "/purchase/{id}/purchaseitem/", response_model=PurchaseItemPub, tags=["Purchase"]
+)
 async def add_purchase_items(
     id: int, items: list[PurchaseItemIn], session: Session = Depends(get_session)
 ):
@@ -572,7 +587,7 @@ async def add_purchase_items(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "some products were not found")
 
 
-@app.get("/purchase/{id}/purchaseitem/")
+@app.get("/purchase/{id}/purchaseitem/", tags=["Purchase"])
 async def get_purchase_items(id: int, session: Session = Depends(get_session)):
     items = PurchaseControler.get_one(id, session)
     if items:
@@ -582,7 +597,7 @@ async def get_purchase_items(id: int, session: Session = Depends(get_session)):
     )
 
 
-@app.get("/purchaseitem/{id}", response_model=PurchaseItemPub)
+@app.get("/purchaseitem/{id}", response_model=PurchaseItemPub, tags=["Purchase"])
 async def get_purchase_item(id: int, session: Session = Depends(get_session)):
     item = PurchaseItemControler.get_one(id, session)
     if item:

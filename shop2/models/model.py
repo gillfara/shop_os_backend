@@ -1,8 +1,9 @@
-from annotated_types import Timezone
-from sqlmodel import SQLModel, Relationship, Field, create_engine
 from datetime import datetime, timezone
-from typing import Optional
 from enum import StrEnum
+from typing import Optional
+
+from annotated_types import Timezone
+from sqlmodel import Field, Relationship, SQLModel, create_engine
 
 
 class Status(StrEnum):
@@ -224,6 +225,11 @@ class ParchaseIn(SQLModel):
     amount: float
 
 
+class PurchaseIn2(SQLModel):
+    amount: float
+    purchaseitems: list["PurchaseItemIn"]
+
+
 class Purchase(ParchaseIn, table=True):
     id: int | None = Field(default=None, primary_key=True)
     created_at: datetime = Field(default=datetime.now(timezone.utc))
@@ -235,6 +241,7 @@ class PurchasePub(ParchaseIn):
     id: int
     updated_at: datetime
     created_at: datetime
+    purchaseitems: list["PurchaseItem"]
 
 
 # PurchaseItem model
