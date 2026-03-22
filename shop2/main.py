@@ -388,6 +388,8 @@ async def get_product(id: int, session: Session = Depends(get_session)):
 async def update_product(
     id: int, product: ProductsIn, session: Session = Depends(get_session)
 ):
+    print(id)
+    print(product)
     productdb = ProductControler.update(product, id, session)
     if productdb:
         return productdb
@@ -562,13 +564,12 @@ async def delete_purchase(id: int, session: Session = Depends(get_session)):
 async def save_purchase_bulk(
     purchase: PurchaseIn2, session: Session = Depends(get_session)
 ):
-    dbmodel = PurchaseControler.save_bulk(purchase, session)
-    if dbmodel is None:
-        raise HTTPException(
-            status.HTTP_406_NOT_ACCEPTABLE,
-            "Purchase amount does not match the sum of the indidual items",
-        )
-    return dbmodel
+    try:
+        dbmodel = PurchaseControler.save_bulk(purchase, session)
+        return dbmodel
+    except Exception as e:
+        print(e)
+        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, str(e))
 
 
 @app.post(
@@ -605,10 +606,21 @@ async def get_purchase_item(id: int, session: Session = Depends(get_session)):
     raise HTTPException(status.HTTP_404_NOT_FOUND, "purchase item not found")
 
 
+@app.get("/purchase/", response_model=list[PurchasePub], tags=["Purchase"])
+async def get_all_purchase(
+    offset: int = 0, limit: int = 30, session: Session = Depends(get_session)
+):
+    try:
+        query = PurchaseControler.get_all(offset, limit, session)
+        return query
+    except exception as e:
+        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, e)
+
+
 # endpoints for expenses
 
 
-@app.post("/expenses/", response_model=list[ExpensePub])
+@app.post("/expenses/", response_model=list[ExpensePub], tags=["Expenses"])
 async def add_expenses(
     expenses: list[ExpenseIn], session: Session = Depends(get_session)
 ):
@@ -616,7 +628,7 @@ async def add_expenses(
     return items
 
 
-@app.get("/expenses/", response_model=list[ExpensePub])
+@app.get("/expenses/", response_model=list[ExpensePub], tags=["Expenses"])
 async def get_expenses(
     offset: int = 0, limit: int = 30, session: Session = Depends(get_session)
 ):
@@ -624,7 +636,7 @@ async def get_expenses(
     return expenses
 
 
-@app.get("/expenses/{id}/", response_model=ExpensePub)
+@app.get("/expenses/{id}/", response_model=ExpensePub, tags=["Expenses"])
 async def get_expense(id: int, session: Session = Depends(get_session)):
     expense = ExpenseControler.get_one(id, session)
     if expense:
@@ -632,7 +644,7 @@ async def get_expense(id: int, session: Session = Depends(get_session)):
     raise HTTPException(status.HTTP_404_NOT_FOUND, "expense with that id was not found")
 
 
-@app.put("/expenses/{id}/")
+@app.put("/expenses/{id}/", tags=["Expenses"])
 async def update_expense(id: int, expense: ExpenseIn, session):
     expensedb = ExpenseControler.get_one(id, session)
     if not expensedb:
@@ -645,7 +657,7 @@ async def update_expense(id: int, expense: ExpenseIn, session):
     return expensedb
 
 
-@app.delete("/expenses/{id}/")
+@app.delete("/expenses/{id}/", tags=["Expenses"])
 async def delete_expense(id: int, session: Session = Depends(get_session)):
     expense = ExpenseControler.delete(id, session)
     if expense:

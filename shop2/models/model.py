@@ -99,7 +99,7 @@ class ProductsIn(SQLModel):
     name: str
     buying_price: float
     selling_price: float
-    stock: float
+    stock: float  #
     units: str
 
 
@@ -251,6 +251,7 @@ class PurchaseItemIn(SQLModel):
     amount: float  # amount is the product price times the number of product
     product_id: int
     quantity: float
+    # selling_price: float
 
 
 class PurchaseItem(PurchaseItemIn, table=True):

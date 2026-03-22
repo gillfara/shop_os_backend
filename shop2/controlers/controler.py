@@ -315,14 +315,16 @@ class PurchaseControler:
                     product.buying_price = buying_price
                     dbitem.product = product
                 else:
-                    return None
+                    raise Exception(f"Product with id {item.product_id} was not found")
             else:
-                print("no product found")
-                return None
+                raise Exception("Product id was not found")
+
             validated_items.append(dbitem)
         if total != model.amount:
             print(total, model.amount)
-            return None
+            raise Exception(
+                f"total amount {total} was not equal to model amount {model.amount}"
+            )
 
         dbmodel = model
         dbmodel.purchaseitems = validated_items
