@@ -1,0 +1,11 @@
+[project]
+name = "shop-os-backend"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.135.1",
+    "sqlmodel>=0.0.37",
+    "uvicorn>=0.42.0",
+]
