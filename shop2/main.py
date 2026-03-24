@@ -613,8 +613,8 @@ async def get_all_purchase(
     try:
         query = PurchaseControler.get_all(offset, limit, session)
         return query
-    except exception as e:
-        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, e)
+    except Exception as e:
+        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, str(e))
 
 
 # endpoints for expenses

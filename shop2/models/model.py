@@ -223,10 +223,12 @@ class PayItemPub(PayItemIn):
 # Purchase model
 class ParchaseIn(SQLModel):
     amount: float
+    supplier: str
 
 
 class PurchaseIn2(SQLModel):
     amount: float
+    supplier: str
     purchaseitems: list["PurchaseItemIn"]
 
 
