@@ -588,7 +588,11 @@ async def add_purchase_items(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "some products were not found")
 
 
-@app.get("/purchase/{id}/purchaseitem/", tags=["Purchase"])
+@app.get(
+    "/purchase/{id}/purchaseitem/",
+    tags=["Purchase"],
+    response_model=list[PurchaseItemPub],
+)
 async def get_purchase_items(id: int, session: Session = Depends(get_session)):
     items = PurchaseControler.get_one(id, session)
     if items:

@@ -237,6 +237,7 @@ class Purchase(ParchaseIn, table=True):
     created_at: datetime = Field(default=datetime.now(timezone.utc))
     updated_at: datetime = Field(default=datetime.now(timezone.utc))
     purchaseitems: list["PurchaseItem"] = Relationship(back_populates="purchase")
+    items_count: int | None = Field(default=0)
 
 
 class PurchasePub(ParchaseIn):
@@ -244,6 +245,7 @@ class PurchasePub(ParchaseIn):
     updated_at: datetime
     created_at: datetime
     purchaseitems: list["PurchaseItem"]
+    items_count: int
 
 
 # PurchaseItem model

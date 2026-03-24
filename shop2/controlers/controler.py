@@ -329,6 +329,7 @@ class PurchaseControler:
         dbmodel = model
         dbmodel.purchaseitems = validated_items
         dbmodel = Purchase.model_validate(dbmodel)
+        dbmodel.items_count = len(validated_items)
         session.add(dbmodel)
         session.commit()
         session.refresh(dbmodel)
